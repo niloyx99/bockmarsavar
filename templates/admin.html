@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-zinc-50">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>License Control — Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"] },
+            colors: {
+              surface: { DEFAULT: "#ffffff", muted: "#fafafa", border: "#e4e4e7" },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/static/admin.css" />
+  </head>
+  <body class="h-full text-zinc-900 antialiased">
+    <!-- Login overlay -->
+    <div
+      id="login-overlay"
+      class="login-backdrop fixed inset-0 z-50 hidden items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="login-title"
+    >
+      <div
+        class="w-full max-w-md rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm"
+      >
+        <div class="mb-6 text-center">
+          <div
+            class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-100 bg-zinc-50"
+          >
+            <i data-lucide="shield-check" class="lucide text-zinc-700"></i>
+          </div>
+          <h1 id="login-title" class="text-lg font-semibold tracking-tight text-zinc-900">
+            Admin sign in
+          </h1>
+          <p class="mt-1 text-sm text-zinc-500">Enter your password to manage licenses.</p>
+        </div>
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label for="login-password" class="sr-only">Password</label>
+            <input
+              id="login-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-0 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+              placeholder="Password"
+            />
+          </div>
+          <p id="login-error" class="hidden text-center text-sm text-red-600"></p>
+          <button
+            type="submit"
+            class="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-zinc-800"
+          >
+            <span>Continue</span>
+            <i data-lucide="arrow-right" class="lucide h-4 w-4"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit modal -->
+    <div
+      id="edit-modal"
+      class="fixed inset-0 z-40 hidden items-center justify-center modal-backdrop px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-title"
+    >
+      <div
+        class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200/80 bg-white shadow-sm"
+      >
+        <div class="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+          <h2 id="edit-title" class="text-base font-semibold tracking-tight">Edit license</h2>
+          <button
+            type="button"
+            id="edit-close"
+            class="icon-btn"
+            aria-label="Close"
+            title="Close"
+          >
+            <i data-lucide="x" class="lucide"></i>
+          </button>
+        </div>
+        <form id="edit-form" class="space-y-4 px-6 py-5">
+          <input type="hidden" id="edit-id" />
+          <div>
+            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+              >Username</label
+            >
+            <input
+              id="edit-username"
+              required
+              class="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+            />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+              >Plan</label
+            >
+            <input
+              id="edit-plan"
+              class="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+            />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+              >Device limit</label
+            >
+            <input
+              id="edit-device-limit"
+              type="number"
+              min="1"
+              required
+              class="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+            />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+              >Status</label
+            >
+            <select
+              id="edit-status"
+              class="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+            >
+              <option value="active">Active</option>
+              <option value="blocked">Blocked</option>
+            </select>
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+              >Expiry (local)</label
+            >
+            <input
+              id="edit-expiry"
+              type="datetime-local"
+              required
+              class="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+            />
+          </div>
+          <div class="flex justify-end gap-2 border-t border-zinc-100 pt-4">
+            <button
+              type="button"
+              id="edit-cancel"
+              class="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Save changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="flex min-h-full">
+      <!-- Sidebar -->
+      <aside
+        class="hidden w-64 shrink-0 flex-col border-r border-zinc-200/80 bg-white lg:flex"
+      >
+        <div class="flex h-16 items-center gap-2 border-b border-zinc-100 px-5">
+          <span
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-100 bg-zinc-50"
+          >
+            <i data-lucide="key-round" class="lucide text-zinc-800"></i>
+          </span>
+          <div>
+            <p class="text-sm font-semibold tracking-tight text-zinc-900">{{ app_name }}</p>
+            <p class="text-xs text-zinc-500">Management</p>
+          </div>
+        </div>
+        <nav class="flex flex-1 flex-col gap-0.5 p-3 text-sm">
+          <a
+            href="#licenses"
+            class="flex items-center gap-3 rounded-lg px-3 py-2.5 font-medium text-zinc-900 bg-zinc-50 border border-zinc-100"
+          >
+            <i data-lucide="layout-grid" class="lucide text-zinc-600"></i>
+            Licenses
+          </a>
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center gap-3 rounded-lg px-3 py-2.5 font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+          >
+            <i data-lucide="book-open" class="lucide text-zinc-500"></i>
+            API docs
+          </a>
+        </nav>
+        <div class="border-t border-zinc-100 p-3">
+          <button
+            type="button"
+            id="logout-btn"
+            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+          >
+            <i data-lucide="log-out" class="lucide h-4 w-4 text-zinc-500"></i>
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      <!-- Mobile header -->
+      <div class="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-4 backdrop-blur lg:hidden">
+        <div class="flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-100 bg-zinc-50">
+            <i data-lucide="key-round" class="lucide h-4 w-4"></i>
+          </span>
+          <span class="text-sm font-semibold">{{ app_name }}</span>
+        </div>
+        <button type="button" id="mobile-logout" class="icon-btn" aria-label="Sign out" title="Sign out">
+          <i data-lucide="log-out" class="lucide"></i>
+        </button>
+      </div>
+
+      <main class="min-w-0 flex-1 pt-14 lg:pt-0">
+        <div
+          class="w-full max-w-none px-4 py-8 sm:px-6 sm:py-10 lg:px-10 lg:py-10 xl:px-12 2xl:px-16"
+          id="licenses"
+        >
+          <header class="mb-10 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 class="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+                Licenses
+              </h1>
+              <p class="mt-1 max-w-xl text-sm text-zinc-500">
+                Create and manage customer keys, device limits, and access status.
+              </p>
+            </div>
+            <a
+              href="/docs#/default/validate_validate_get_validate_get"
+              class="hidden text-sm font-medium text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline sm:inline"
+              >Validation API</a
+            >
+          </header>
+
+          <!-- Create card -->
+          <section
+            class="mb-10 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-[0_1px_0_rgba(0,0,0,0.03)] sm:p-8"
+          >
+            <div class="mb-6 flex items-center gap-3">
+              <span
+                class="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-100 bg-zinc-50"
+              >
+                <i data-lucide="sparkles" class="lucide text-zinc-700"></i>
+              </span>
+              <div>
+                <h2 class="text-base font-semibold tracking-tight">New license</h2>
+                <p class="text-xs text-zinc-500">New licenses are saved with server-managed validity.</p>
+              </div>
+            </div>
+            <form id="create-form" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div class="sm:col-span-1">
+                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+                  >Username</label
+                >
+                <input
+                  name="username"
+                  required
+                  placeholder="Customer name"
+                  class="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+                />
+              </div>
+              <div class="sm:col-span-1">
+                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+                  >Amount / plan</label
+                >
+                <input
+                  name="plan"
+                  placeholder="e.g. Pro Annual"
+                  class="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+                />
+              </div>
+              <div class="sm:col-span-1">
+                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+                  >Device limit</label
+                >
+                <input
+                  name="device_limit"
+                  type="number"
+                  min="1"
+                  value="3"
+                  required
+                  class="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+                />
+              </div>
+              <div class="sm:col-span-2 lg:col-span-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <p id="create-msg" class="hidden flex-1 text-sm text-zinc-500"></p>
+                <button
+                  type="submit"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-none transition hover:bg-zinc-800"
+                >
+                  <i data-lucide="plus-circle" class="lucide h-4 w-4"></i>
+                  Create license
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <!-- Table -->
+          <section
+            class="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_0_rgba(0,0,0,0.03)]"
+          >
+            <div class="flex flex-col gap-3 border-b border-zinc-100 px-4 py-4 sm:px-6 sm:py-5">
+              <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold tracking-tight text-zinc-900">All licenses</h2>
+                <span id="license-count" class="text-xs font-medium text-zinc-400"></span>
+              </div>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div class="relative w-full sm:max-w-md">
+                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
+                    <i data-lucide="search" class="lucide h-4 w-4"></i>
+                  </span>
+                  <input
+                    id="license-search"
+                    type="text"
+                    inputmode="search"
+                    autocomplete="off"
+                    placeholder="Search username, plan, or license key…"
+                    class="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-10 pr-10 text-sm outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5"
+                  />
+                  <button
+                    type="button"
+                    id="license-search-clear"
+                    class="icon-btn absolute inset-y-0 right-1 my-auto h-9 w-9 p-0"
+                    aria-label="Clear search"
+                    title="Clear"
+                  >
+                    <i data-lucide="x" class="lucide h-4 w-4"></i>
+                  </button>
+                </div>
+                <p id="license-search-hint" class="text-xs text-zinc-400">
+                  Matches are prioritized (not hidden).
+                </p>
+              </div>
+            </div>
+            <!-- Mobile: card list (md and up uses table) -->
+            <div id="license-cards" class="md:hidden space-y-4 bg-zinc-50/40 p-4"></div>
+            <div class="hidden overflow-x-auto md:block">
+              <table class="min-w-full divide-y divide-zinc-100 text-left text-sm">
+                <thead class="bg-zinc-50/80">
+                  <tr>
+                    <th class="px-4 py-3 font-medium text-zinc-500 sm:px-6">User</th>
+                    <th class="px-4 py-3 font-medium text-zinc-500 sm:px-6">Key</th>
+                    <th class="hidden px-4 py-3 font-medium text-zinc-500 sm:table-cell sm:px-6">
+                      Devices
+                    </th>
+                    <th class="px-4 py-3 font-medium text-zinc-500 sm:px-6">Status</th>
+                    <th class="px-4 py-3 text-right font-medium text-zinc-500 sm:px-6">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="license-body" class="divide-y divide-zinc-100 bg-white"></tbody>
+              </table>
+            </div>
+            <p id="empty-state" class="hidden border-t border-zinc-100 px-6 py-12 text-center text-sm text-zinc-500">
+              No licenses yet. Create one above.
+            </p>
+          </section>
+
+          <footer class="mt-12 text-center text-xs text-zinc-400">
+            Validation: <code class="rounded bg-zinc-100 px-1 py-0.5 text-zinc-600">GET /validate</code>
+            ·
+            <code class="rounded bg-zinc-100 px-1 py-0.5 text-zinc-600">POST /validate</code>
+          </footer>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+    <script>
+      (function () {
+        const $ = (sel) => document.querySelector(sel);
+        const loginOverlay = $("#login-overlay");
+        const loginForm = $("#login-form");
+        const loginError = $("#login-error");
+        const editModal = $("#edit-modal");
+        const licenseBody = $("#license-body");
+        const licenseCards = $("#license-cards");
+        const emptyState = $("#empty-state");
+        const licenseCount = $("#license-count");
+        const createMsg = $("#create-msg");
+        const licenseSearch = $("#license-search");
+        const licenseSearchClear = $("#license-search-clear");
+
+        /** @type {Array<object>} */
+        let licenseRowsCache = [];
+
+        function icons() {
+          if (window.lucide) lucide.createIcons();
+        }
+
+        async function api(path, opts = {}) {
+          const res = await fetch(path, {
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+            ...opts,
+          });
+          const text = await res.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch {
+            data = text;
+          }
+          if (!res.ok) {
+            const err = new Error((data && data.detail) || res.statusText || "Request failed");
+            err.status = res.status;
+            err.body = data;
+            throw err;
+          }
+          return data;
+        }
+
+        async function me() {
+          return api("/api/auth/me");
+        }
+
+        function shortLicenseCode(key) {
+          return String(key)
+            .replace(/-/g, "")
+            .slice(0, 6)
+            .toUpperCase();
+        }
+
+        function rowById(id) {
+          return licenseRowsCache.find((x) => String(x.id) === String(id));
+        }
+
+        function normalizeSearch(s) {
+          return String(s || "")
+            .toLowerCase()
+            .replace(/\\s+/g, " ")
+            .trim();
+        }
+
+        function computeMatchScore(row, q) {
+          if (!q) return 0;
+          const u = normalizeSearch(row.username);
+          const p = normalizeSearch(row.plan || "");
+          const k = normalizeSearch(row.license_key || "");
+          const code = normalizeSearch(shortLicenseCode(row.license_key || ""));
+
+          // Higher score = earlier in list.
+          if (u === q) return 1000;
+          if (p === q) return 900;
+          if (k === q || code === q) return 850;
+          if (u.startsWith(q)) return 700;
+          if (p.startsWith(q)) return 650;
+          if (k.includes(q) || code.includes(q)) return 600;
+          if (u.includes(q)) return 500;
+          if (p.includes(q)) return 450;
+          return 0;
+        }
+
+        function getSortedRowsForSearch(rows) {
+          const q = normalizeSearch(licenseSearch.value);
+          if (!q) return rows.slice();
+          const scored = rows
+            .map((r, idx) => ({ r, idx, score: computeMatchScore(r, q) }))
+            .sort((a, b) => {
+              // Matches first by score desc, then stable by original order.
+              if (b.score !== a.score) return b.score - a.score;
+              return a.idx - b.idx;
+            })
+            .map((x) => x.r);
+          return scored;
+        }
+
+        async function refreshTable() {
+          const rows = await api("/api/licenses");
+          licenseRowsCache = rows;
+          licenseCount.textContent = rows.length + " total";
+          renderRows();
+        }
+
+        function renderRows() {
+          const rows = getSortedRowsForSearch(licenseRowsCache);
+          licenseBody.innerHTML = "";
+          licenseCards.innerHTML = "";
+          if (!rows.length) {
+            licenseCards.classList.add("hidden");
+            emptyState.classList.remove("hidden");
+            icons();
+            return;
+          }
+          licenseCards.classList.remove("hidden");
+          emptyState.classList.add("hidden");
+          for (const r of rows) {
+            const blocked = r.status === "blocked";
+            const code = shortLicenseCode(r.license_key);
+            const blockExtra = blocked ? " m-act-unblock" : "";
+            const blockIcon = blocked ? "shield-check" : "shield-off";
+            const blockTitle = blocked ? "Unblock" : "Block";
+
+            const card = document.createElement("article");
+            card.className =
+              "rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm " +
+              (blocked ? "opacity-95 grayscale-[0.7]" : "");
+            card.innerHTML = `
+              <div class="mb-3 flex items-start justify-between gap-2">
+                <span class="text-[15px] font-semibold leading-snug text-zinc-900">${escapeHtml(
+                  r.username
+                )}</span>
+                <span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  blocked ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"
+                }">${blocked ? "Blocked" : "Active"}</span>
+              </div>
+              <p class="mb-2 text-sm text-zinc-600">${escapeHtml(r.plan || "—")}</p>
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <span class="text-sm font-bold uppercase tracking-wide text-zinc-900">${escapeHtml(
+                  code
+                )}</span>
+                <button type="button" class="m-card-copy btn-card-copy" data-key="${escapeHtml(
+                  code
+                )}" aria-label="Copy key" title="Copy">
+                  <i data-lucide="copy" class="lucide h-4 w-4"></i>
+                </button>
+              </div>
+              <p class="mb-4 text-sm text-zinc-600">
+                Devices: <strong class="font-semibold text-zinc-900">${r.registered_devices}</strong>
+                <span class="text-zinc-400"> / </span>${r.device_limit}
+              </p>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" class="m-act m-act-edit btn-edit" data-id="${
+                  r.id
+                }" aria-label="Edit" title="Edit">
+                  <i data-lucide="pencil" class="lucide"></i>
+                </button>
+                <button type="button" class="m-act m-act-block btn-block${blockExtra}" data-id="${
+                  r.id
+                }" aria-label="${blockTitle}" title="${blockTitle}">
+                  <i data-lucide="${blockIcon}" class="lucide"></i>
+                </button>
+                <button type="button" class="m-act m-act-del btn-del" data-id="${
+                  r.id
+                }" aria-label="Delete" title="Delete">
+                  <i data-lucide="trash-2" class="lucide"></i>
+                </button>
+              </div>`;
+            licenseCards.appendChild(card);
+
+            const tr = document.createElement("tr");
+            tr.className =
+              "group transition-colors " +
+              (blocked ? "bg-zinc-50/90 grayscale-[0.85]" : "hover:bg-zinc-50/50");
+            tr.innerHTML = `
+              <td class="px-4 py-3 sm:px-6">
+                <div class="font-medium text-zinc-900">${escapeHtml(r.username)}</div>
+                <div class="text-xs text-zinc-500 sm:hidden">${r.registered_devices}/${r.device_limit} devices</div>
+                <div class="text-xs text-zinc-400">${escapeHtml(r.plan || "—")}</div>
+              </td>
+              <td class="px-4 py-3 sm:px-6">
+                <div class="flex items-center gap-2">
+                  <code class="rounded-lg border border-zinc-100 bg-zinc-50 px-2 py-1 text-xs font-semibold tracking-wide text-zinc-800">${escapeHtml(
+                    code
+                  )}</code>
+                  <button type="button" class="icon-btn btn-key-copy" data-key="${escapeHtml(
+                    code
+                  )}" aria-label="Copy key" title="Copy key">
+                    <i data-lucide="copy" class="lucide"></i>
+                  </button>
+                </div>
+              </td>
+              <td class="hidden px-4 py-3 text-zinc-600 sm:table-cell sm:px-6">
+                ${r.registered_devices} <span class="text-zinc-400">/</span> ${r.device_limit}
+              </td>
+              <td class="px-4 py-3 sm:px-6">
+                <div class="flex items-center gap-2">
+                  <span class="relative flex h-2 w-2">
+                    <span class="absolute inline-flex h-full w-full rounded-full opacity-40 ${
+                      blocked ? "bg-red-500" : "bg-emerald-500"
+                    }"></span>
+                    <span class="relative inline-flex h-2 w-2 rounded-full ${
+                      blocked ? "bg-red-500" : "bg-emerald-500"
+                    }"></span>
+                  </span>
+                  <span class="text-xs font-medium uppercase tracking-wide ${
+                    blocked ? "text-red-600" : "text-emerald-700"
+                  }">${blocked ? "Blocked" : "Active"}</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-right sm:px-6">
+                <div class="inline-flex items-center justify-end gap-0.5">
+                  <button type="button" class="icon-btn btn-edit" data-id="${r.id}" aria-label="Edit" title="Edit">
+                    <i data-lucide="pencil" class="lucide"></i>
+                  </button>
+                  <button type="button" class="icon-btn btn-block" data-id="${r.id}" aria-label="${
+                    blocked ? "Unblock" : "Block"
+                  }" title="${blocked ? "Unblock" : "Block"}">
+                    <i data-lucide="${blocked ? "shield-check" : "shield-off"}" class="lucide"></i>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn-danger btn-del" data-id="${
+                    r.id
+                  }" aria-label="Delete" title="Delete">
+                    <i data-lucide="trash-2" class="lucide"></i>
+                  </button>
+                </div>
+              </td>`;
+            licenseBody.appendChild(tr);
+          }
+          licenseCards.querySelectorAll(".btn-card-copy").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const k = btn.getAttribute("data-key");
+              if (k) navigator.clipboard.writeText(k);
+            });
+          });
+          document.querySelectorAll(".btn-key-copy").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const k = btn.getAttribute("data-key");
+              if (k) navigator.clipboard.writeText(k);
+            });
+          });
+          document.querySelectorAll(".btn-edit").forEach((btn) => {
+            btn.addEventListener("click", () => openEdit(rowById(btn.dataset.id)));
+          });
+          document.querySelectorAll(".btn-block").forEach((btn) => {
+            btn.addEventListener("click", () => toggleBlock(btn.dataset.id));
+          });
+          document.querySelectorAll(".btn-del").forEach((btn) => {
+            btn.addEventListener("click", () => delLicense(btn.dataset.id));
+          });
+          icons();
+        }
+
+        function setRowStatusOptimistic(id, status) {
+          const idx = licenseRowsCache.findIndex((x) => String(x.id) === String(id));
+          if (idx === -1) return;
+          licenseRowsCache[idx] = { ...licenseRowsCache[idx], status };
+        }
+
+        function mergeRowFromServer(updated) {
+          const idx = licenseRowsCache.findIndex((x) => String(x.id) === String(updated.id));
+          if (idx === -1) return;
+          licenseRowsCache[idx] = { ...licenseRowsCache[idx], ...updated };
+        }
+
+        function escapeHtml(s) {
+          return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+        function showLogin(show) {
+          loginOverlay.classList.toggle("hidden", !show);
+          loginOverlay.classList.toggle("flex", show);
+          if (show) {
+            $("#login-password").focus();
+            icons();
+          }
+        }
+
+        function openEdit(row) {
+          if (!row) return;
+          $("#edit-id").value = row.id;
+          $("#edit-username").value = row.username;
+          $("#edit-plan").value = row.plan || "";
+          $("#edit-device-limit").value = row.device_limit;
+          $("#edit-status").value = row.status;
+          const d = new Date(row.expiry_date);
+          const pad = (n) => String(n).padStart(2, "0");
+          const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+            d.getHours()
+          )}:${pad(d.getMinutes())}`;
+          $("#edit-expiry").value = local;
+          editModal.classList.remove("hidden");
+          editModal.classList.add("flex");
+          icons();
+        }
+
+        function closeEdit() {
+          editModal.classList.add("hidden");
+          editModal.classList.remove("flex");
+        }
+
+        async function toggleBlock(id) {
+          const row = rowById(id);
+          if (!row) return;
+
+          // Optimistic UI: toggle immediately.
+          const prev = row.status;
+          const next = prev === "blocked" ? "active" : "blocked";
+          setRowStatusOptimistic(id, next);
+          renderRows();
+
+          try {
+            const updated = await api("/api/licenses/" + id + "/block", { method: "POST" });
+            mergeRowFromServer(updated);
+            renderRows();
+          } catch (err) {
+            // Revert if server failed.
+            setRowStatusOptimistic(id, prev);
+            renderRows();
+            alert(err.message || "Failed to update status");
+          }
+        }
+
+        async function delLicense(id) {
+          if (!confirm("Delete this license permanently?")) return;
+          await api("/api/licenses/" + id, { method: "DELETE" });
+          await refreshTable();
+        }
+
+        loginForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          loginError.classList.add("hidden");
+          const fd = new FormData(loginForm);
+          try {
+            await api("/api/auth/login", {
+              method: "POST",
+              body: JSON.stringify({ password: fd.get("password") }),
+            });
+            showLogin(false);
+            await refreshTable();
+          } catch (err) {
+            loginError.textContent = err.message || "Login failed";
+            loginError.classList.remove("hidden");
+          }
+        });
+
+        $("#logout-btn").addEventListener("click", logout);
+        $("#mobile-logout").addEventListener("click", logout);
+        async function logout() {
+          await api("/api/auth/logout", { method: "POST" });
+          showLogin(true);
+        }
+
+        $("#edit-close").addEventListener("click", closeEdit);
+        $("#edit-cancel").addEventListener("click", closeEdit);
+        editModal.addEventListener("click", (e) => {
+          if (e.target === editModal) closeEdit();
+        });
+
+        $("#edit-form").addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const id = $("#edit-id").value;
+          const localStr = $("#edit-expiry").value;
+          const iso = new Date(localStr).toISOString();
+          try {
+            await api("/api/licenses/" + id, {
+              method: "PATCH",
+              body: JSON.stringify({
+                username: $("#edit-username").value,
+                plan: $("#edit-plan").value,
+                device_limit: Number($("#edit-device-limit").value),
+                status: $("#edit-status").value,
+                expiry_date: iso,
+              }),
+            });
+            closeEdit();
+            await refreshTable();
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+
+        $("#create-form").addEventListener("submit", async (e) => {
+          e.preventDefault();
+          createMsg.classList.add("hidden");
+          const fd = new FormData(e.target);
+          const body = {
+            username: fd.get("username"),
+            plan: fd.get("plan") || "",
+            device_limit: Number(fd.get("device_limit")),
+          };
+          try {
+            await api("/api/licenses", { method: "POST", body: JSON.stringify(body) });
+            createMsg.textContent = "License created successfully.";
+            createMsg.classList.remove("hidden");
+            e.target.reset();
+            e.target.querySelector('[name="device_limit"]').value = "3";
+            await refreshTable();
+          } catch (err) {
+            createMsg.textContent = err.message;
+            createMsg.classList.remove("hidden");
+          }
+        });
+
+        licenseSearchClear.addEventListener("click", () => {
+          licenseSearch.value = "";
+          renderRows();
+          licenseSearch.focus();
+        });
+        licenseSearch.addEventListener("input", () => {
+          renderRows();
+        });
+
+        async function boot() {
+          icons();
+          const s = await me();
+          if (!s.authenticated) {
+            showLogin(true);
+            return;
+          }
+          showLogin(false);
+          await refreshTable();
+        }
+
+        boot();
+      })();
+    </script>
+  </body>
+</html>
