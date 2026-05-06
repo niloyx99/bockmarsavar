@@ -3,6 +3,7 @@ FastAPI application entry: middleware, routers, templates, and DB bootstrap.
 """
 
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -39,7 +40,8 @@ async def lifespan(_app: FastAPI):
 
 
 settings = get_settings()
-templates = Jinja2Templates(directory="templates")
+BASE_DIR = Path(__file__).resolve().parent.parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 app = FastAPI(
     title="License & User Management Server",
@@ -64,7 +66,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 app.include_router(auth.router)
 app.include_router(licenses_api.router)
