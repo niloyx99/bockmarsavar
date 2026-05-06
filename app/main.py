@@ -7,9 +7,8 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -41,7 +40,6 @@ async def lifespan(_app: FastAPI):
 
 settings = get_settings()
 BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 app = FastAPI(
     title="License & User Management Server",
@@ -81,8 +79,5 @@ def root() -> RedirectResponse:
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 def admin_page(request: Request) -> HTMLResponse:
-    """Serve the single-page admin dashboard (client checks session via API)."""
-    return templates.TemplateResponse(
-        "admin.html",
-        {"request": request, "app_name": "License Control"},
-    )
+    """Serve the single-page admin dashboard (static HTML)."""
+    return FileResponse(str(BASE_DIR / "templates" / "admin.html"), media_type="text/html")
