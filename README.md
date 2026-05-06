@@ -61,5 +61,21 @@ Validate license:
 ## Deploy notes
 
 - **Use HTTPS** for real clients (browser scripts on HTTPS sites cannot call plain `http://` endpoints).
-- Keep `SECRET_KEY`, `ADMIN_PASSWORD`, `MONGODB_URI` as environment variables in your host (Render/Railway/VPS/Docker).
+- Keep `SECRET_KEY`, `ADMIN_PASSWORD`, `MONGODB_URI` as environment variables in your host (Render/Railway/VPS).
+
+## Deploy on Render (Python runtime)
+
+This repo includes `render.yaml`. On Render:
+
+- **Runtime**: Python
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Root Directory**: leave blank (repo root)
+
+Set environment variables in Render:
+
+- `SECRET_KEY`
+- `ADMIN_PASSWORD`
+- `MONGODB_URI`
+- `MONGODB_DB` (default: `license_server`)
 
