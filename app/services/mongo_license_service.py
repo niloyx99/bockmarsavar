@@ -8,6 +8,7 @@ Collections:
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -46,10 +47,22 @@ async def _count_devices(db: AsyncIOMotorDatabase, license_key: str) -> int:
 
 
 async def list_licenses(db: AsyncIOMotorDatabase) -> list[LicenseOut]:
+    pipeline = [
+        {"$sort": {"created_at": -1}},
+        {
+            "$lookup": {
+                "from": "license_devices",
+                "localField": "license_key",
+                "foreignField": "license_key",
+                "as": "_devices",
+            }
+        },
+        {"$addFields": {"registered_devices": {"$size": "$_devices"}}},
+        {"$project": {"_devices": 0}},
+    ]
     out: list[LicenseOut] = []
-    async for doc in db["licenses"].find({}, sort=[("created_at", -1)]):
-        used = await _count_devices(db, doc["license_key"])
-        out.append(_doc_to_out(doc, used))
+    async for doc in db["licenses"].aggregate(pipeline):
+        out.append(_doc_to_out(doc, int(doc.get("registered_devices", 0))))
     return out
 
 
@@ -138,8 +151,10 @@ async def delete_license(db: AsyncIOMotorDatabase, license_id: int) -> None:
     if not doc:
         raise KeyError("License not found")
     key = doc["license_key"]
-    await db["licenses"].delete_one({"id": int(license_id)})
-    await db["license_devices"].delete_many({"license_key": key})
+    await asyncio.gather(
+        db["licenses"].delete_one({"id": int(license_id)}),
+        db["license_devices"].delete_many({"license_key": key}),
+    )
 
 
 async def validate_license(db: AsyncIOMotorDatabase, license_key: str, hwid: str) -> ValidateResponse:

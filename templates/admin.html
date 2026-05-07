@@ -398,6 +398,7 @@
         const createMsg = $("#create-msg");
         const licenseSearch = $("#license-search");
         const licenseSearchClear = $("#license-search-clear");
+        const LICENSE_CACHE_KEY = "license_admin_rows_cache_v1";
 
         /** @type {Array<object>} */
         let licenseRowsCache = [];
@@ -430,6 +431,31 @@
 
         async function me() {
           return api("/api/auth/me");
+        }
+
+        function saveLicenseCache() {
+          try {
+            localStorage.setItem(LICENSE_CACHE_KEY, JSON.stringify(licenseRowsCache));
+          } catch {
+            // Cache is only for instant paint; ignore storage quota/private mode failures.
+          }
+        }
+
+        function loadLicenseCache() {
+          try {
+            const raw = localStorage.getItem(LICENSE_CACHE_KEY);
+            const rows = raw ? JSON.parse(raw) : [];
+            return Array.isArray(rows) ? rows : [];
+          } catch {
+            return [];
+          }
+        }
+
+        function setRows(rows) {
+          licenseRowsCache = Array.isArray(rows) ? rows : [];
+          licenseCount.textContent = licenseRowsCache.length + " total";
+          saveLicenseCache();
+          renderRows();
         }
 
         function shortLicenseCode(key) {
@@ -485,9 +511,7 @@
 
         async function refreshTable() {
           const rows = await api("/api/licenses");
-          licenseRowsCache = rows;
-          licenseCount.textContent = rows.length + " total";
-          renderRows();
+          setRows(rows);
         }
 
         function renderRows() {
@@ -643,12 +667,28 @@
           const idx = licenseRowsCache.findIndex((x) => String(x.id) === String(id));
           if (idx === -1) return;
           licenseRowsCache[idx] = { ...licenseRowsCache[idx], status };
+          setRows(licenseRowsCache);
         }
 
         function mergeRowFromServer(updated) {
           const idx = licenseRowsCache.findIndex((x) => String(x.id) === String(updated.id));
           if (idx === -1) return;
           licenseRowsCache[idx] = { ...licenseRowsCache[idx], ...updated };
+          setRows(licenseRowsCache);
+        }
+
+        function removeRowOptimistic(id) {
+          const idx = licenseRowsCache.findIndex((x) => String(x.id) === String(id));
+          if (idx === -1) return null;
+          const [removed] = licenseRowsCache.splice(idx, 1);
+          setRows(licenseRowsCache);
+          return { removed, idx };
+        }
+
+        function restoreRow(snapshot) {
+          if (!snapshot || !snapshot.removed) return;
+          licenseRowsCache.splice(snapshot.idx, 0, snapshot.removed);
+          setRows(licenseRowsCache);
         }
 
         function escapeHtml(s) {
@@ -698,24 +738,26 @@
           const prev = row.status;
           const next = prev === "blocked" ? "active" : "blocked";
           setRowStatusOptimistic(id, next);
-          renderRows();
 
           try {
             const updated = await api("/api/licenses/" + id + "/block", { method: "POST" });
             mergeRowFromServer(updated);
-            renderRows();
           } catch (err) {
             // Revert if server failed.
             setRowStatusOptimistic(id, prev);
-            renderRows();
             alert(err.message || "Failed to update status");
           }
         }
 
         async function delLicense(id) {
           if (!confirm("Delete this license permanently?")) return;
-          await api("/api/licenses/" + id, { method: "DELETE" });
-          await refreshTable();
+          const snapshot = removeRowOptimistic(id);
+          try {
+            await api("/api/licenses/" + id, { method: "DELETE" });
+          } catch (err) {
+            restoreRow(snapshot);
+            alert(err.message || "Failed to delete license");
+          }
         }
 
         loginForm.addEventListener("submit", async (e) => {
@@ -753,8 +795,21 @@
           const id = $("#edit-id").value;
           const localStr = $("#edit-expiry").value;
           const iso = new Date(localStr).toISOString();
+          const current = rowById(id);
+          const optimistic = current
+            ? {
+                ...current,
+                username: $("#edit-username").value,
+                plan: $("#edit-plan").value,
+                device_limit: Number($("#edit-device-limit").value),
+                status: $("#edit-status").value,
+                expiry_date: iso,
+              }
+            : null;
           try {
-            await api("/api/licenses/" + id, {
+            if (optimistic) mergeRowFromServer(optimistic);
+            closeEdit();
+            const updated = await api("/api/licenses/" + id, {
               method: "PATCH",
               body: JSON.stringify({
                 username: $("#edit-username").value,
@@ -764,9 +819,9 @@
                 expiry_date: iso,
               }),
             });
-            closeEdit();
-            await refreshTable();
+            mergeRowFromServer(updated);
           } catch (err) {
+            if (current) mergeRowFromServer(current);
             alert(err.message);
           }
         });
@@ -781,12 +836,12 @@
             device_limit: Number(fd.get("device_limit")),
           };
           try {
-            await api("/api/licenses", { method: "POST", body: JSON.stringify(body) });
+            const created = await api("/api/licenses", { method: "POST", body: JSON.stringify(body) });
             createMsg.textContent = "License created successfully.";
             createMsg.classList.remove("hidden");
             e.target.reset();
             e.target.querySelector('[name="device_limit"]').value = "3";
-            await refreshTable();
+            setRows([created, ...licenseRowsCache]);
           } catch (err) {
             createMsg.textContent = err.message;
             createMsg.classList.remove("hidden");
@@ -810,7 +865,13 @@
             return;
           }
           showLogin(false);
-          await refreshTable();
+          const cached = loadLicenseCache();
+          if (cached.length) {
+            setRows(cached);
+            refreshTable().catch(() => {});
+          } else {
+            await refreshTable();
+          }
         }
 
         boot();

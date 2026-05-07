@@ -13,6 +13,8 @@ from pymongo import ASCENDING, IndexModel
 
 from app.config import get_settings
 
+_client: AsyncIOMotorClient | None = None
+
 
 def get_mongo_db() -> AsyncIOMotorDatabase:
     """
@@ -20,11 +22,13 @@ def get_mongo_db() -> AsyncIOMotorDatabase:
 
     Motor's client is thread-safe and intended to be long-lived.
     """
+    global _client
     settings = get_settings()
     if not settings.mongodb_uri:
         raise RuntimeError("mongodb_uri is not configured")
-    client = AsyncIOMotorClient(settings.mongodb_uri)
-    return client[settings.mongodb_db]
+    if _client is None:
+        _client = AsyncIOMotorClient(settings.mongodb_uri)
+    return _client[settings.mongodb_db]
 
 
 def utcnow() -> datetime:
@@ -40,6 +44,7 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await licenses.create_indexes(
         [
             IndexModel([("license_key", ASCENDING)], unique=True, name="uniq_license_key"),
+            IndexModel([("id", ASCENDING)], unique=True, name="uniq_license_id"),
             IndexModel([("username", ASCENDING)], name="idx_username"),
             IndexModel([("created_at", ASCENDING)], name="idx_created_at"),
         ]
